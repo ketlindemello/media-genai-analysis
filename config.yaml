@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  #  MyS3Bucket:
+  #    Type: AWS::S3::Bucket
+  #  Properties:
+  #    BucketName: cloud-formation-serverless-deployments
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaS3Access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+              - Effect: Allow
+                Action:
+                  - s3:*
+                Resource:
+                  - arn:aws:s3:::awsjavaimageshope
+                  - arn:aws:s3:::awsjavaimageshope/*
+                  - arn:aws:s3:::awsjavaimageshope/image_source/*
+                  - image_source/*
+              - Effect: Allow
+                Action:
+                  - rekognition:DetectFaces
+                Resource: "*"
+
+  MyLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: S3TriggeredJavaLambda
+      Runtime: java17
+      Handler: org.example.javafileop.LambdaHandler::handleRequest
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 300
+      Code:
+        S3Bucket: cloud-formation-serverless-deployments
+        S3Key: lambdas/S3TriggeredJavaLambda/java-file-op-1.0-SNAPSHOT.zip  # Contains compiled JAR with dependencies # TODO
+
+  S3EventTrigger:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref MyLambdaFunction
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: arn:aws:s3:::awsjavaimageshope
+
+#  S3Notification:
+#    Type: AWS::S3::BucketNotification
+#    Properties:
+#      Bucket: awsjavaimageshope
+#      NotificationConfiguration:
+#        LambdaConfigurations:
+#          - Event: s3:ObjectCreated:Put
+#            Function: !GetAtt MyLambdaFunction.Arn
+#            Filter:
+#              Prefix: image_incaming/
+#              Suffix: .jpg
+#
